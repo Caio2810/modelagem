@@ -1,0 +1,59 @@
+Fluxo Detalhado de Transferência
+
+Evento de Início: Solicitação de Transferência
+
+    O processo é disparado quando o usuário decide iniciar uma nova transferência.
+
+Tarefa (Usuário): Informar Valor e Confirmar
+
+    O usuário preenche o valor desejado e confirma sua intenção de transferir os fundos.
+
+Tarefa (Sistema): Consultar Saldo no Banco de Dados
+
+    O sistema acessa as informações da conta do usuário para verificar se há saldo disponível para a operação.
+
+Gateway Exclusivo: O saldo é suficiente?
+
+    Neste ponto, o fluxo se divide com base no resultado da consulta.
+
+Caminho 1: Saldo Suficiente (Sim)
+
+    Tarefa (Sistema): Calcular Retenção 7%
+
+        O sistema aplica a regra de negócio de calcular uma retenção de 7% sobre o valor da transação.
+
+    Gateway Exclusivo: O valor é maior que R$5.000?
+
+        Uma verificação de segurança adicional é realizada para transações de alto valor.
+
+            Se SIM (valor alto):
+
+                Tarefa (Usuário): Pontuação Manual
+
+                    O fluxo exige que um usuário (ou um operador) aprove manualmente a transação antes de continuar.
+
+            Se NÃO (valor baixo):
+
+                O fluxo prossegue automaticamente para a próxima etapa.
+
+    Tarefa (Sistema): Chamar API para Executar Transferência
+
+        Após a aprovação (se necessária), o sistema se comunica com o serviço de pagamentos para efetivar a transferência.
+
+    Tarefa (Sistema): Registrar Transação de Saída no Banco de Dados
+
+        A transação é registrada com sucesso no histórico da conta do usuário.
+
+    Evento de Fim: Transferência Finalizada
+
+        O processo é concluído com sucesso.
+
+Caminho 2: Saldo Insuficiente (Não)
+
+    Tarefa (Usuário): Notificar Usuário
+
+        O usuário recebe uma mensagem na tela informando que a operação não pôde ser concluída por falta de saldo.
+
+    Evento de Fim: Transferência Cancelada
+
+        O processo é encerrado sem que a transferência seja efetuada.
