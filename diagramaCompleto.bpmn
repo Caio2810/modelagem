@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Defs_Modified" targetNamespace="http://bpmn.io/schema/bpmn" exporter="BPMN Studio" exporterVersion="1.0.0">
+  <bpmn:collaboration id="Collab_Main">
+    <bpmn:participant id="Participant_Principal" name="Processo de Transferência" processRef="Process_Main" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_Main" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_Usuario" name="Usuário">
+        <bpmn:flowNodeRef>Event_Start_Transfer</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_FillData</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_WaitForAuth</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Sistema" name="Sistema">
+        <bpmn:flowNodeRef>Task_CheckBalance</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_IsBalanceOK</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Event_End_Cancelled</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_NotifyUser</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_CalcRetention</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_IsHighValue</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RequestAuth</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_RegisterDebit</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Event_End_Completed</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_ExecuteApiPayment</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="Event_Start_Transfer" name="Início da Transferência">
+      <bpmn:outgoing>Flow_StartToFill</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="Task_FillData" name="Preencher Dados da Transferência">
+      <bpmn:incoming>Flow_StartToFill</bpmn:incoming>
+      <bpmn:outgoing>Flow_FillToCheck</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:task id="Task_CheckBalance" name="Verificação de Saldo em Conta">
+      <bpmn:incoming>Flow_FillToCheck</bpmn:incoming>
+      <bpmn:outgoing>Flow_CheckToGateway</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="Gateway_IsBalanceOK" name="Saldo cobre o valor?">
+      <bpmn:incoming>Flow_CheckToGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_BalanceNotOK</bpmn:outgoing>
+      <bpmn:outgoing>Flow_BalanceOK</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="Event_End_Cancelled" name="Transferência Cancelada">
+      <bpmn:incoming>Flow_NotifyToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:task id="Task_NotifyUser" name="Avisar Usuário (Saldo Insuficiente)">
+      <bpmn:incoming>Flow_BalanceNotOK</bpmn:incoming>
+      <bpmn:outgoing>Flow_NotifyToEnd</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:task id="Task_CalcRetention" name="Aplicar Retenção (7%)">
+      <bpmn:incoming>Flow_BalanceOK</bpmn:incoming>
+      <bpmn:outgoing>Flow_CalcToValueGateway</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:exclusiveGateway id="Gateway_IsHighValue" name="Transação de Alto Valor? (&gt; R$ 5k)">
+      <bpmn:incoming>Flow_CalcToValueGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_ValueIsHigh</bpmn:outgoing>
+      <bpmn:outgoing>Flow_ValueNotHigh</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:task id="Task_RequestAuth" name="Pedir Autorização Manual">
+      <bpmn:incoming>Flow_ValueIsHigh</bpmn:incoming>
+      <bpmn:outgoing>Flow_RequestToWait</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:userTask id="Task_WaitForAuth" name="Aguardando Autorização">
+      <bpmn:incoming>Flow_RequestToWait</bpmn:incoming>
+      <bpmn:outgoing>Flow_WaitToExecute</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:task id="Task_RegisterDebit" name="Registrar Débito no BD">
+      <bpmn:incoming>Flow_ExecuteToRegister</bpmn:incoming>
+      <bpmn:outgoing>Flow_RegisterToEnd</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="Event_End_Completed" name="Operação Concluída">
+      <bpmn:incoming>Flow_RegisterToEnd</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:task id="Task_ExecuteApiPayment" name="Executar Pagamento via API">
+      <bpmn:incoming>Flow_ValueNotHigh</bpmn:incoming>
+      <bpmn:incoming>Flow_WaitToExecute</bpmn:incoming>
+      <bpmn:outgoing>Flow_ExecuteToRegister</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:sequenceFlow id="Flow_StartToFill" sourceRef="Event_Start_Transfer" targetRef="Task_FillData" />
+    <bpmn:sequenceFlow id="Flow_CheckToGateway" sourceRef="Task_CheckBalance" targetRef="Gateway_IsBalanceOK" />
+    <bpmn:sequenceFlow id="Flow_BalanceNotOK" name="Não" sourceRef="Gateway_IsBalanceOK" targetRef="Task_NotifyUser" />
+    <bpmn:sequenceFlow id="Flow_BalanceOK" name="Sim" sourceRef="Gateway_IsBalanceOK" targetRef="Task_CalcRetention" />
+    <bpmn:sequenceFlow id="Flow_NotifyToEnd" sourceRef="Task_NotifyUser" targetRef="Event_End_Cancelled" />
+    <bpmn:sequenceFlow id="Flow_CalcToValueGateway" sourceRef="Task_CalcRetention" targetRef="Gateway_IsHighValue" />
+    <bpmn:sequenceFlow id="Flow_ValueIsHigh" name="Sim" sourceRef="Gateway_IsHighValue" targetRef="Task_RequestAuth" />
+    <bpmn:sequenceFlow id="Flow_RequestToWait" sourceRef="Task_RequestAuth" targetRef="Task_WaitForAuth" />
+    <bpmn:sequenceFlow id="Flow_RegisterToEnd" sourceRef="Task_RegisterDebit" targetRef="Event_End_Completed" />
+    <bpmn:sequenceFlow id="Flow_ValueNotHigh" name="Não" sourceRef="Gateway_IsHighValue" targetRef="Task_ExecuteApiPayment" />
+    <bpmn:sequenceFlow id="Flow_ExecuteToRegister" sourceRef="Task_ExecuteApiPayment" targetRef="Task_RegisterDebit" />
+    <bpmn:sequenceFlow id="Flow_FillToCheck" sourceRef="Task_FillData" targetRef="Task_CheckBalance" />
+    <bpmn:sequenceFlow id="Flow_WaitToExecute" sourceRef="Task_WaitForAuth" targetRef="Task_ExecuteApiPayment" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collab_Main">
+      <bpmndi:BPMNShape id="Participant_Principal_di" bpmnElement="Participant_Principal" isHorizontal="true">
+        <dc:Bounds x="156" y="60" width="1075" height="625" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Usuario_di" bpmnElement="Lane_Usuario" isHorizontal="true">
+        <dc:Bounds x="186" y="60" width="1045" height="260" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Sistema_di" bpmnElement="Lane_Sistema" isHorizontal="true">
+        <dc:Bounds x="186" y="320" width="1045" height="365" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_Start_Transfer_di" bpmnElement="Event_Start_Transfer">
+        <dc:Bounds x="242" y="152" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="216" y="195" width="89" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_FillData_di" bpmnElement="Task_FillData">
+        <dc:Bounds x="330" y="130" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CheckBalance_di" bpmnElement="Task_CheckBalance">
+        <dc:Bounds x="330" y="390" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_IsBalanceOK_di" bpmnElement="Gateway_IsBalanceOK" isMarkerVisible="true">
+        <dc:Bounds x="485" y="405" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="466" y="462" width="89" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_End_Cancelled_di" bpmnElement="Event_End_Cancelled">
+        <dc:Bounds x="362" y="582" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="337" y="625" width="87" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_NotifyUser_di" bpmnElement="Task_NotifyUser">
+        <dc:Bounds x="460" y="560" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CalcRetention_di" bpmnElement="Task_CalcRetention">
+        <dc:Bounds x="590" y="390" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_IsHighValue_di" bpmnElement="Gateway_IsHighValue" isMarkerVisible="true">
+        <dc:Bounds x="745" y="405" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="725" y="462" width="90" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RequestAuth_di" bpmnElement="Task_RequestAuth">
+        <dc:Bounds x="830" y="390" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_WaitForAuth_di" bpmnElement="Task_WaitForAuth">
+        <dc:Bounds x="830" y="130" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_RegisterDebit_di" bpmnElement="Task_RegisterDebit">
+        <dc:Bounds x="970" y="560" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_End_Completed_di" bpmnElement="Event_End_Completed">
+        <dc:Bounds x="1122" y="582" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1096" y="625" width="89" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_ExecuteApiPayment_di" bpmnElement="Task_ExecuteApiPayment">
+        <dc:Bounds x="830" y="560" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_StartToFill_di" bpmnElement="Flow_StartToFill">
+        <di:waypoint x="278" y="170" />
+        <di:waypoint x="330" y="170" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_CheckToGateway_di" bpmnElement="Flow_CheckToGateway">
+        <di:waypoint x="430" y="430" />
+        <di:waypoint x="485" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_BalanceNotOK_di" bpmnElement="Flow_BalanceNotOK">
+        <di:waypoint x="510" y="455" />
+        <di:waypoint x="510" y="560" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="519" y="505" width="22" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_BalanceOK_di" bpmnElement="Flow_BalanceOK">
+        <di:waypoint x="535" y="430" />
+        <di:waypoint x="590" y="430" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="556" y="412" width="18" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_NotifyToEnd_di" bpmnElement="Flow_NotifyToEnd">
+        <di:waypoint x="460" y="600" />
+        <di:waypoint x="398" y="600" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_CalcToValueGateway_di" bpmnElement="Flow_CalcToValueGateway">
+        <di:waypoint x="690" y="430" />
+        <di:waypoint x="745" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ValueIsHigh_di" bpmnElement="Flow_ValueIsHigh">
+        <di:waypoint x="795" y="430" />
+        <di:waypoint x="830" y="430" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="806" y="412" width="18" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_RequestToWait_di" bpmnElement="Flow_RequestToWait">
+        <di:waypoint x="880" y="390" />
+        <di:waypoint x="880" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_RegisterToEnd_di" bpmnElement="Flow_RegisterToEnd">
+        <di:waypoint x="1070" y="600" />
+        <di:waypoint x="1122" y="600" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ValueNotHigh_di" bpmnElement="Flow_ValueNotHigh">
+        <di:waypoint x="770" y="455" />
+        <di:waypoint x="770" y="600" />
+        <di:waypoint x="830" y="600" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="779" y="525" width="22" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_ExecuteToRegister_di" bpmnElement="Flow_ExecuteToRegister">
+        <di:waypoint x="930" y="600" />
+        <di:waypoint x="970" y="600" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_FillToCheck_di" bpmnElement="Flow_FillToCheck">
+        <di:waypoint x="380" y="210" />
+        <di:waypoint x="380" y="390" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_WaitToExecute_di" bpmnElement="Flow_WaitToExecute">
+        <di:waypoint x="880" y="210" />
+        <di:waypoint x="880" y="560" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
